@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Greater Victoria 2025 Event Guide</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals (Slate, Zinc, Stone) with a subtle Amber accent. -->
+    <!-- Application Structure Plan: A dashboard-style SPA. The structure prioritizes user-driven exploration over the report's linear format. It features a top control panel (filters for month, type, and search) for immediate task completion. The core is an interactive bar chart visualizing event density, allowing users to grasp the year's rhythm instantly and click to filter. This is paired with a dynamic card grid for event details, which is more scannable and engaging than a text list. A "Signature Events" carousel highlights key attractions. This non-linear, task-oriented design was chosen to empower users to find relevant information quickly, which is a significant usability improvement over scrolling a long document. -->
+    <!-- Visualization & Content Choices:
+        - Report Info: Monthly event counts -> Goal: Compare -> Viz: Bar Chart (Chart.js) -> Interaction: Click a month's bar to filter the event list below. -> Justification: Provides an at-a-glance overview of the year's seasonality and doubles as a primary navigation tool.
+        - Report Info: Full event list -> Goal: Organize/Inform -> Presentation: Dynamic Card Grid (HTML/JS/Tailwind) -> Interaction: Cards are dynamically filtered by the controls. Clicking a card opens a modal with comprehensive details, including the report's strategic analysis. -> Justification: Breaks down the wall of text into digestible, structured components. Modals prevent page reloads and keep the user in context.
+        - Report Info: Signature Annual Events -> Goal: Highlight/Inform -> Presentation: Horizontal Scrolling Carousel (HTML/CSS/Tailwind) -> Interaction: Visually prominent, clickable cards. -> Justification: Elevates the most important festivals and traditions, acting as a "featured" section for users seeking top-tier attractions.
+        - Library/Method: Chart.js for its simplicity, responsiveness, and canvas-based rendering. All other visuals are achieved with structured HTML and Tailwind CSS.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 250px;
+            max-height: 300px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 300px;
+                max-height: 350px;
+            }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .modal-enter {
+            animation: modal-bg-enter 0.3s ease-out;
+        }
+        .modal-exit {
+            animation: modal-bg-exit 0.3s ease-in;
+        }
+        .modal-content-enter {
+            animation: modal-content-enter 0.3s ease-out;
+        }
+        .modal-content-exit {
+            animation: modal-content-exit 0.3s ease-in;
+        }
+        @keyframes modal-bg-enter {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes modal-content-enter {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes modal-content-exit {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(0.95); }
+        }
+        ::-webkit-scrollbar {
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #e2e8f0; /* slate-200 */
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8; /* slate-400 */
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b; /* slate-500 */
+        }
+    </style>
+</head>
+<body class="text-slate-700">
+
+    <div id="app" class="container mx-auto p-4 md:p-8">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-slate-800 mb-2">Greater Victoria 2025 Event Guide</h1>
+            <p class="text-lg text-slate-600 max-w-3xl mx-auto">An interactive guide to the vibrant festivals, community gatherings, and cultural celebrations in Victoria, BC for 2025. Explore by month, type, or search.</p>
+        </header>
+
+        <main>
+            <section id="dashboard" class="mb-12 p-6 bg-white rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-2xl font-bold text-slate-800 mb-4 text-center">The Rhythm of the Year</h2>
+                <p class="text-center text-slate-600 mb-6 max-w-2xl mx-auto">This chart shows the number of major annual festivals and events each month. Click on a month's bar to instantly see all events happening then.</p>
+                <div class="chart-container">
+                    <canvas id="eventsChart"></canvas>
+                </div>
+            </section>
+
+            <section id="filters" class="mb-8 p-4 bg-white rounded-xl shadow-sm border border-slate-200 sticky top-0 z-20">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                    <div>
+                        <label for="month-filter" class="block text-sm font-medium text-slate-700 mb-1">Month</label>
+                        <select id="month-filter" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+                            <option value="all">All Months</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="type-filter" class="block text-sm font-medium text-slate-700 mb-1">Event Type</label>
+                        <select id="type-filter" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+                            <option value="all">All Types</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2 lg:col-span-2">
+                        <label for="search-filter" class="block text-sm font-medium text-slate-700 mb-1">Search by Name</label>
+                        <input type="text" id="search-filter" placeholder="e.g., Jazz Fest, Canada Day..." class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+                </div>
+                 <div class="text-center mt-4">
+                     <button id="reset-filters" class="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors text-sm">Reset Filters</button>
+                 </div>
+            </section>
+
+            <section id="signature-events" class="mb-12">
+                <h2 class="text-3xl font-bold text-slate-800 mb-6 text-center">Signature Annual Events</h2>
+                <div class="relative">
+                    <div id="signature-container" class="flex overflow-x-auto space-x-6 pb-4">
+                    </div>
+                </div>
+            </section>
+            
+            <section id="events-list-section">
+                 <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold text-slate-800">Events Calendar</h2>
+                    <p id="event-count" class="text-slate-600 font-medium"></p>
+                </div>
+                <div id="events-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                </div>
+                <p id="no-results" class="text-center text-slate-500 py-12 hidden">No events match your criteria. Try adjusting your filters.</p>
+            </section>
+        </main>
+        
+    </div>
+
+    <div id="modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-60 hidden">
+        <div id="modal-content" class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6 md:p-8">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 id="modal-title" class="text-2xl font-bold text-slate-800"></h3>
+                        <p id="modal-dates" class="text-slate-500"></p>
+                    </div>
+                    <button id="close-modal" class="text-slate-400 hover:text-slate-600 transition-colors">&times;</button>
+                </div>
+                <div class="space-y-4 text-slate-600">
+                     <div id="modal-tags" class="flex flex-wrap gap-2"></div>
+                    <p id="modal-location" class="font-semibold"></p>
+                    <p id="modal-description"></p>
+                    <div id="modal-analysis-container" class="mt-4 p-4 bg-slate-50 border-l-4 border-amber-400 rounded-r-lg hidden">
+                        <h4 class="font-bold text-slate-700">Planner's Insight</h4>
+                        <p id="modal-analysis" class="italic text-slate-600"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const eventsData = [
+                { name: "Festival of Trees", startDate: "2025-11-14", endDate: "2026-01-05", month: 11, categories: ["Annual", "Holiday", "Community"], location: "The Bay Centre", description: "A beloved holiday tradition transforms spaces with decorated trees, supporting local charities.", isSignature: true },
+                { name: "Magic of Christmas at Butchart Gardens", startDate: "2025-12-01", endDate: "2026-01-06", month: 12, categories: ["Annual", "Holiday", "Attraction"], location: "Butchart Gardens", description: "A spectacular display of hundreds of thousands of lights, accompanied by holiday music and festive treats, offering a magical winter experience.", isSignature: true, analysis: "This event's use of an iconic, visually stunning venue significantly enhances the festive atmosphere, making it a major draw for both local families and tourists seeking quintessential Victorian Christmas experiences." },
+                { name: "Destination Greater Victoria Membership Mixer", startDate: "2025-01-09", month: 1, categories: ["Annual", "Business"], location: "Oak Bay Beach Hotel", description: "Crucial for local tourism and hospitality professionals to network and collaborate, laying the groundwork for the year's events." },
+                { name: "22nd Annual Robbie Burns Dinner", startDate: "2025-01-25", month: 1, categories: ["Annual", "Community", "Food & Drink"], location: "Mary Winspear Centre", description: "A traditional celebration of Scottish poet Robert Burns, often featuring haggis, whisky, and poetry." },
+                { name: "Swift Current Broncos vs Victoria Royals", startDate: "2025-01-25", month: 1, categories: ["Sports"], location: "Save-on-Foods Memorial Centre", description: "A key local sports fixture, drawing hockey fans." },
+                { name: "SonReal", startDate: "2025-01-25", month: 1, categories: ["Music"], location: "Capital Ballroom", description: "Music concert." },
+                { name: "Pineo & Loeb", startDate: "2025-01-25", month: 1, categories: ["Music"], location: "Capital Ballroom", description: "Music concert." },
+                { name: "Avram McCagherty Trio", startDate: "2025-01-25", month: 1, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Tony DeSare - Rhapsody & Blue Eyes", startDate: "2025-01-25", month: 1, categories: ["Music"], location: "The Royal Theatre", description: "Music concert." },
+                { name: "Frozen in Time", startDate: "2025-01-25", month: 1, categories: ["Theatre"], location: "The McPherson Playhouse", description: "Theatre performance." },
+                { name: "Sidney by the Sea Rotary Speaker Series", startDate: "2025-01-25", month: 1, categories: ["Community"], location: "Mary Winspear Centre", description: "Community event." },
+                { name: "Catherine MacLellan", startDate: "2025-01-25", month: 1, categories: ["Music"], location: "Mary Winspear Centre", description: "Music concert." },
+                { name: "St. Cecilia", startDate: "2025-01-25", month: 1, categories: ["Music"], location: "Irish Times", description: "Music performance." },
+                { name: "Attila Fias", startDate: "2025-01-25", month: 1, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Saturday Dinner & Drag", startDate: "2025-01-25", month: 1, categories: ["Performance"], location: "Location not specified", description: "Performance event." },
+                { name: "House of Mercury", startDate: "2025-01-25", month: 1, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Pulse Radio", startDate: "2025-01-25", month: 1, categories: ["Music"], location: "Irish Times", description: "Music performance." },
+                { name: "The Pickups", startDate: "2025-01-25", month: 1, categories: ["Music"], location: "Bard and Banker", description: "Music performance (Free)." },
+                { name: "Gabriel Rutledge", startDate: "2025-01-25", month: 1, categories: ["Comedy"], location: "Hecklers Bar & Grill", description: "Comedy show." },
+                { name: "Victoria - International Vegan Film Festival - 2025 World Tour", startDate: "2025-01-25", month: 1, categories: ["Film Festival"], location: "Location not specified", description: "Film festival." },
+                { name: "Maria", startDate: "2025-01-25", month: 1, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "The Seed of the Sacred Fig", startDate: "2025-01-25", month: 1, categories: ["Performance"], location: "Location not specified", description: "Performance event." },
+                { name: "Goodrich", startDate: "2025-01-25", month: 1, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "2025 Lunar New Year's Parade & Blessing of Merchants", startDate: "2025-02-09", month: 2, categories: ["Annual", "Cultural", "Parade"], location: "Victoria's Chinatown National Historic Site", description: "Vibrant annual event celebrating the Year of the Snake with dragon dances, traditional performances, and merchant blessings.", isSignature: true },
+                { name: "Chinese New Year", startDate: "2025-02-12", month: 2, categories: ["Annual", "Cultural"], location: "City-wide", description: "Broader celebration around the parade." },
+                { name: "Destination Greater Victoria Membership Mixer", startDate: "2025-02-13", month: 2, categories: ["Annual", "Business"], location: "The Union Club of British Columbia", description: "Continues the monthly networking for tourism and hospitality professionals." },
+                { name: "Culinaire 2025", startDate: "2025-02-26", month: 2, categories: ["Annual", "Food & Drink"], location: "Victoria Conference Centre", description: "Culinary festival showcasing Vancouver Island's best restaurants, purveyors, and beverage makers.", isSignature: true, analysis: "The placement of Culinaire in late February is strategic. It stands out as a premier indoor experience during a quieter period, positioning Victoria as a year-round gastronomic destination and supporting local businesses in the off-peak season." },
+                { name: "Cherry Blossom Season", startDate: "2025-03-01", endDate: "2025-04-30", month: 3, categories: ["Seasonal", "Nature"], location: "City-wide", description: "The blooming cherry blossoms across the city offer a beautiful backdrop for scenic walks and photography." },
+                { name: "Dune Rats", startDate: "2025-03-01", month: 3, categories: ["Music"], location: "Wicket Hall", description: "Music concert." },
+                { name: "Conjure Hand", startDate: "2025-03-01", month: 3, categories: ["Music"], location: "First Metropolitan United Church", description: "Music concert." },
+                { name: "Colin James Terra Lightfoot", startDate: "2025-03-03", month: 3, categories: ["Music"], location: "Royal Theatre", description: "Music concert." },
+                { name: "Blu & Exile Spark Houston", startDate: "2025-03-05", month: 3, categories: ["Music"], location: "Wicket Hall", description: "Music concert." },
+                { name: "Jelly Roll, Josh Ross, and Savannah Dexter", startDate: "2025-03-06", month: 3, categories: ["Music"], location: "Save-On-Foods Memorial Centre", description: "Music concert." },
+                { name: "Stickybuds", startDate: "2025-03-07", month: 3, categories: ["Music"], location: "Capitol Ballroom", description: "Music concert." },
+                { name: "Busty And The Bass Zach Zoya", startDate: "2025-03-08", month: 3, categories: ["Music"], location: "Capital Ballroom", description: "Music concert." },
+                { name: "Attila Fias", startDate: "2025-03-08", month: 3, categories: ["Music"], location: "Hermann's Jazz Club", description: "Music performance." },
+                { name: "Advance Base and Little Kid Niloo", startDate: "2025-03-09", month: 3, categories: ["Music"], location: "Little Fernwood", description: "Music performance." },
+                { name: "Bruce Cockburn", startDate: "2025-03-11", month: 3, categories: ["Music"], location: "Royal Theatre", description: "Music concert." },
+                { name: "Destination Greater Victoria Membership Mixer", startDate: "2025-03-12", month: 3, categories: ["Annual", "Business"], location: "Olympic View Golf Course", description: "Joint with Westshore Chamber of Commerce." },
+                { name: "Tinzo + Jojo", startDate: "2025-03-13", month: 3, categories: ["Music"], location: "Upstairs Cabaret", description: "Music performance." },
+                { name: "Elise Leblanc", startDate: "2025-03-13", month: 3, categories: ["Music"], location: "Hermann's Upstairs", description: "Music performance." },
+                { name: "Five Alarm Funk", startDate: "2025-03-15", month: 3, categories: ["Music"], location: "Capital Ballroom", description: "Music concert." },
+                { name: "Brass Concert (Spring Concerts)", startDate: "2025-03-16", month: 3, categories: ["Music"], location: "St. Andrew's Presbyterian Church", description: "Part of a series of Spring Concerts." },
+                { name: "Bob Log III Caveman & The Banshee (CDN)", startDate: "2025-03-16", month: 3, categories: ["Music"], location: "Lucky Bar", description: "Music performance." },
+                { name: "Lime Cordiale", startDate: "2025-03-17", month: 3, categories: ["Music"], location: "Royal Theatre", description: "Music concert." },
+                { name: "The Beach Boys", startDate: "2025-03-22", month: 3, categories: ["Music"], location: "Save-On-Foods Memorial Centre", description: "Music concert." },
+                { name: "Elise Leblanc", startDate: "2025-03-23", month: 3, categories: ["Music"], location: "Victoria Folk Music Society", description: "Music performance." },
+                { name: "Derek Monypeny and Ak'Chamel", startDate: "2025-03-27", month: 3, categories: ["Music"], location: "Little Fernwood", description: "Music performance." },
+                { name: "Glass Tiger", startDate: "2025-03-28", month: 3, categories: ["Music"], location: "McPherson Playhouse", description: "Music concert." },
+                { name: "Troy Bond", startDate: "2025-03-28", month: 3, categories: ["Comedy"], location: "Capital Ballroom", description: "Comedy show." },
+                { name: "Garden City Grooves Festival 2025", startDate: "2025-03-28", endDate: "2025-03-30", month: 3, categories: ["Annual", "Music", "Festival"], location: "First Metropolitan United Church", description: "A multi-day music festival to welcome the spring." },
+                { name: "Judy Collins", startDate: "2025-03-29", month: 3, categories: ["Music"], location: "St. Andrew's Presbyterian Church", description: "Music concert." },
+                { name: "From Tree to Sea", startDate: "2025-03-30", month: 3, categories: ["Arts & Culture", "Exhibition"], location: "Gage Gallery", description: "A mixed media show by Karen Guilbault." },
+                { name: "Spring Concerts", startDate: "2025-03-30", month: 3, categories: ["Music"], location: "St. Andrew's Presbyterian Church", description: "Music concert." },
+                { name: "Bribe Inc. (Q&A with filmmakers afterwards)", startDate: "2025-03-30", month: 3, categories: ["Film Screening"], location: "The Vic Theatre", description: "Film screening with Q&A." },
+                { name: "Visible: A Trans Joy Variety Show", startDate: "2025-03-30", month: 3, categories: ["Performance"], location: "The Metro Studio Theatre", description: "Variety show." },
+                { name: "Destination Greater Victoria Membership Mixer", startDate: "2025-04-09", month: 4, categories: ["Annual", "Business"], location: "Black Ball Ferry Line", description: "Membership mixer." },
+                { name: "Strath Laughs Comedy Show", startDate: "2025-04-18", month: 4, categories: ["Comedy"], location: "Strathcona Hotel Douglas Street, Victoria", description: "Comedy show." },
+                { name: "Prayer Circle", startDate: "2025-04-21", month: 4, categories: ["Community", "Spiritual"], location: "First Metropolitan United Church", description: "Recurring event on the 'First Monday of' the month." },
+                { name: "Destination Greater Victoria's AGM", startDate: "2025-04-25", month: 4, categories: ["Annual", "Business"], location: "Delta Hotels by Marriott Victoria Ocean Pointe Resort", description: "A significant annual meeting for the local tourism industry." },
+                { name: "36th Annual TC10K", startDate: "2025-04-27", month: 4, categories: ["Annual", "Sports", "Community"], location: "Downtown Victoria", description: "Inclusive run/walk emphasizing community spirit and supporting KidSport Greater Victoria.", isSignature: true },
+                { name: "Moss Street Farmers Market's 34th Season Begins", startDate: "2025-05-03", month: 5, categories: ["Annual", "Market", "Community"], location: "Moss Street", description: "The official start of the summer season for Victoria's premier farmers market, featuring local, organic produce, crafters, artisans, and live music." },
+                { name: "Esquimalt Buccaneer Days", startDate: "2025-05-09", endDate: "2025-05-11", month: 5, categories: ["Annual", "Community", "Festival"], location: "Esquimalt", description: "A traditional community festival known for its parade, fairgrounds, and family activities.", isSignature: true },
+                { name: "VGSN Tourism Showcase", startDate: "2025-05-13", month: 5, categories: ["Business", "Community"], location: "Location not specified", description: "Industry event, public-accessible." },
+                { name: "Destination Greater Victoria Membership Mixer", startDate: "2025-05-14", month: 5, categories: ["Annual", "Business"], location: "Block Kitchen + Bar", description: "Membership mixer." },
+                { name: "Victoria Day Parade", startDate: "2025-05-19", month: 5, categories: ["Annual", "Parade", "Community"], location: "Downtown Victoria", description: "A long-standing tradition celebrating Victoria Day, featuring floats, bands, and community groups.", isSignature: true },
+                { name: "Butchart Gardens Night Illuminations", startDate: "2025-06-01", endDate: "2025-09-15", month: 6, categories: ["Annual", "Seasonal", "Attraction"], location: "Butchart Gardens", description: "Transforms the world-renowned gardens with thousands of lights, creating a stunning evening spectacle.", isSignature: true },
+                { name: "Destination Greater Victoria Membership Mixer", startDate: "2025-06-05", month: 6, categories: ["Annual", "Business"], location: "Royal BC Museum", description: "Membership mixer." },
+                { name: "Victoria’s 26th Annual Ska & Reggae Festival", startDate: "2025-06-18", endDate: "2025-06-22", month: 6, categories: ["Annual", "Music", "Festival"], location: "Ship Point & various venues", description: "A five-day festival showcasing international, national, and local talent.", isSignature: true },
+                { name: "Victoria International Jazz Fest", startDate: "2025-06-20", endDate: "2025-06-29", month: 6, categories: ["Annual", "Music", "Festival"], location: "Various downtown venues", description: "The longest-running multi-day music festival on Vancouver Island, featuring diverse jazz performances.", isSignature: true },
+                { name: "AfriCa Fest 2025", startDate: "2025-06-26", endDate: "2025-06-29", month: 6, categories: ["Annual", "Cultural", "Festival"], location: "Centennial Square", description: "The 12th edition, themed 'Flavors of Africa & the Caribbean,' offering culinary delights, art, music, and dance.", isSignature: true },
+                { name: "Canada Day", startDate: "2025-07-01", month: 7, categories: ["Annual", "Holiday", "Community", "Parade"], location: "City-wide", description: "Extensive programming across Greater Victoria, including fireworks, parades, live music, and family activities.", isSignature: true, analysis: "The high concentration of events around Canada Day requires immense coordination between city services. Victoria's extensive experience allows for effective management of traffic, transit, and public safety, solidifying its reputation as a 'festival city' while ensuring smooth operations." },
+                { name: "Phillips Backyard Music Festival - Tilt", startDate: "2025-07-04", endDate: "2025-07-06", month: 7, categories: ["Annual", "Music", "Festival"], location: "Phillips Brewing & Malting Co.", description: "First of two summer weekends for this popular festival, showcasing diverse international headliners and local talent.", isSignature: true },
+                { name: "Victoria Pride Festival", startDate: "2025-07-02", endDate: "2025-07-06", month: 7, categories: ["Annual", "Community", "Festival", "Parade"], location: "City-wide", description: "A multi-day celebration of the 2SLGBTQIA+ community, culminating in a vibrant parade and festival." },
+                { name: "Melody Moonshaker", startDate: "2025-07-02", month: 7, categories: ["Music"], location: "Cameron Bandshell", description: "Weekly performance." },
+                { name: "All Levels Flow Yoga", startDate: "2025-07-02", month: 7, categories: ["Community", "Wellness"], location: "Location not specified", description: "Weekly yoga." },
+                { name: "Garden City Harmony", startDate: "2025-07-02", month: 7, categories: ["Music"], location: "Location not specified", description: "Weekly music performance." },
+                { name: "Jaya Bremer Quintet", startDate: "2025-07-02", month: 7, categories: ["Music"], location: "Ship Point", description: "Weekly music performance." },
+                { name: "Eventide", startDate: "2025-07-02", month: 7, categories: ["Music"], location: "Ship Point", description: "Weekly music performance." },
+                { name: "Bastion Square Market", startDate: "2025-07-03", month: 7, categories: ["Market"], location: "Bastion Square", description: "Weekly market." },
+                { name: "TFA Fitness", startDate: "2025-07-03", month: 7, categories: ["Wellness"], location: "Location not specified", description: "Weekly fitness." },
+                { name: "Plaza Franco", startDate: "2025-07-03", month: 7, categories: ["Music"], location: "Ship Point", description: "Weekly music performance." },
+                { name: "Swingin' in the Shell", startDate: "2025-07-03", month: 7, categories: ["Music"], location: "Cameron Bandshell", description: "Weekly music performance." },
+                { name: "James Bay Market", startDate: "2025-07-05", month: 7, categories: ["Market"], location: "James Bay", description: "Weekly market." },
+                { name: "Moss Street Market", startDate: "2025-07-05", month: 7, categories: ["Market"], location: "Moss Street", description: "Weekly market." },
+                { name: "Islanders Hot Club", startDate: "2025-07-07", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Latin Dance - Merengue", startDate: "2025-07-07", month: 7, categories: ["Dance"], location: "Location not specified", description: "Latin dance class." },
+                { name: "r.mason", startDate: "2025-07-08", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Peter Puffin's Whale Tales", startDate: "2025-07-09", month: 7, categories: ["Performance", "Family"], location: "Location not specified", description: "Performance for children." },
+                { name: "Oaklands Sunset Market", startDate: "2025-07-09", month: 7, categories: ["Market"], location: "Oaklands", description: "Weekly market." },
+                { name: "Bad Rabbit Radio Live", startDate: "2025-07-09", month: 7, categories: ["Music"], location: "Location not specified", description: "Live radio performance." },
+                { name: "Marina Avros", startDate: "2025-07-10", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "SKAMpede", startDate: "2025-07-11", endDate: "2025-07-13", month: 7, categories: ["Annual", "Arts & Culture", "Festival"], location: "Location not specified", description: "A performing arts festival." },
+                { name: "19th Annual Festival Mexicano", startDate: "2025-07-12", endDate: "2025-07-13", month: 7, categories: ["Annual", "Cultural", "Festival"], location: "Location not specified", description: "Mexican cultural festival." },
+                { name: "VITS Tamil Carnival - Muthamizh Vizha", startDate: "2025-07-12", month: 7, categories: ["Cultural", "Community"], location: "Highlands Community Hall", description: "Tamil cultural carnival." },
+                { name: "The Choirs YYJ", startDate: "2025-07-12", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "The Earthly Delights", startDate: "2025-07-13", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Caleb Hart", startDate: "2025-07-14", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Latin Dance - Bachata", startDate: "2025-07-14", month: 7, categories: ["Dance"], location: "Location not specified", description: "Latin dance class." },
+                { name: "Charis Tazumi", startDate: "2025-07-15", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Sofia Sol", startDate: "2025-07-15", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Ballroom in the Square", startDate: "2025-07-15", month: 7, categories: ["Dance"], location: "Location not specified", description: "Ballroom dancing." },
+                { name: "LelolaiFAM", startDate: "2025-07-16", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Apex Breaks", startDate: "2025-07-16", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Victoria Flamenco Festival", startDate: "2025-07-15", endDate: "2025-07-27", month: 7, categories: ["Annual", "Cultural", "Festival"], location: "Cameron Bandshell, Beacon Hill Park", description: "Returning in 2025, offering workshops and fiery performances with a taste of Spain.", isSignature: true },
+                { name: "Open Air Festival", startDate: "2025-07-16", endDate: "2025-07-23", month: 7, categories: ["Festival"], location: "Location not specified", description: "Multi-day festival." },
+                { name: "Northwest Deuce Days", startDate: "2025-07-17", endDate: "2025-07-20", month: 7, categories: ["Annual", "Community", "Attraction"], location: "Inner Harbour & Legislative Grounds", description: "The world's largest gathering of Deuce Coupes, featuring hundreds of pre-1952 vehicles.", isSignature: true },
+                { name: "Langford Bikefest", startDate: "2025-07-17", endDate: "2025-07-20", month: 7, categories: ["Annual", "Sports"], location: "Jordie Lunn Bike Park, Langford", description: "Bike festival." },
+                { name: "Art Gallery Paint-In", startDate: "2025-07-19", month: 7, categories: ["Annual", "Arts & Culture", "Festival"], location: "Moss Street", description: "One of Canada’s biggest art festivals, transforming Moss Street into an outdoor gallery.", isSignature: true },
+                { name: "Victoria Chapter- Black Women's Summer Social : Beach Day", startDate: "2025-07-19", month: 7, categories: ["Community"], location: "Willows Beach", description: "Summer social event." },
+                { name: "2025 METCHOSIN SUMMER WITCHES MARKET", startDate: "2025-07-19", month: 7, categories: ["Annual", "Market"], location: "Metchosin Community Hall", description: "Summer market (Free)." },
+                { name: "Tasha Cadence", startDate: "2025-07-17", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Carolyn Mark and The New Best Friends", startDate: "2025-07-18", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Jonnie 5 Brass Band", startDate: "2025-07-20", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Odyssey String Quartet", startDate: "2025-07-21", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Latin Dance - Salsa", startDate: "2025-07-21", month: 7, categories: ["Dance"], location: "Location not specified", description: "Latin dance class." },
+                { name: "Sofia Miller", startDate: "2025-07-22", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Becky Prokova", startDate: "2025-07-22", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Madame B Musique", startDate: "2025-07-23", month: 7, categories: ["Music"], location: "Location not specified", description: "Music performance." },
+                { name: "Symphony in the Summer Festival", startDate: "2025-07-24", endDate: "2025-08-03", month: 7, categories: ["Annual", "Music", "Festival"], location: "Various Venues", description: "An annual classical music festival offering a series of performances during warm summer days.", isSignature: true },
+                { name: "ArtisTREE Festival", startDate: "2025-07-26", endDate: "2025-07-27", month: 7, categories: ["Annual", "Market", "Arts & Culture"], location: "Location not specified", description: "A special artisan market supporting Canadian handmade artisans, musicians, and local food makers, including Indigenous makers." },
+                { name: "Islands Folk Festival", startDate: "2025-07-25", endDate: "2025-07-27", month: 7, categories: ["Annual", "Music", "Festival"], location: "Providence Farm", description: "Folk music festival." },
+                { name: "Sunfest Country Music Festival", startDate: "2025-07-31", endDate: "2025-08-03", month: 7, categories: ["Annual", "Music", "Festival"], location: "Laketown Ranch", description: "A major country music festival on Vancouver Island." },
+                { name: "The Wonderment Festival", startDate: "2025-08-01", endDate: "2025-08-04", month: 8, categories: ["Annual", "Music", "Festival"], location: "Public parks & various venues", description: "Celebrating its 10th anniversary, offering free daytime performances and ticketed evening events.", isSignature: true },
+                { name: "The Filberg Festival", startDate: "2025-08-01", endDate: "2025-08-03", month: 8, categories: ["Annual", "Arts & Culture", "Festival"], location: "Filberg Park", description: "Arts and culture festival." },
+                { name: "Coombs Bluegrass Festival", startDate: "2025-08-01", endDate: "2025-08-03", month: 8, categories: ["Annual", "Music", "Festival"], location: "Location not specified", description: "Bluegrass music festival." },
+                { name: "2025 Sun Festival Market Vendors", startDate: "2025-08-04", month: 8, categories: ["Market"], location: "Winskill Park", description: "Market component of The Wonderment Festival." },
+                { name: "Honouring Peace: Hiroshima-Nagasaki Day", startDate: "2025-08-06", month: 8, categories: ["Community", "Spiritual"], location: "Esquimalt Gorge Park", description: "A solemn community gathering for peace (Free)." },
+                { name: "Phillips Backyard Music Festival - Reverb", startDate: "2025-08-08", endDate: "2025-08-10", month: 8, categories: ["Annual", "Music", "Festival"], location: "Phillips Brewing & Malting Co.", description: "The second weekend of this popular music festival, closing out the summer.", isSignature: true },
+                { name: "Samsara Festival", startDate: "2025-08-08", endDate: "2025-08-11", month: 8, categories: ["Annual", "Music", "Festival"], location: "Forests of Southern Vancouver Island", description: "An annual gathering celebrating music, art, and community connection." },
+                { name: "Laketown Shakedown", startDate: "2025-08-09", month: 8, categories: ["Annual", "Music", "Festival"], location: "Laketown Amphitheatre", description: "Music festival." },
+                { name: "North Saanich Flavour Trails", startDate: "2025-08-17", month: 8, categories: ["Annual", "Food & Drink", "Tour"], location: "Just outside the city’s core", description: "A self-guided tour featuring local chefs, fishers, farmers, vintners, and brewers." },
+                { name: "Victoria Fringe Festival", startDate: "2025-08-20", endDate: "2025-08-31", month: 8, categories: ["Annual", "Arts & Culture", "Festival"], location: "Downtown Victoria", description: "The 39th annual 12-day theatre extravaganza, featuring eclectic performances from around the world.", isSignature: true },
+                { name: "Harbour Blues ‘n Roots Festival", startDate: "2025-08-22", endDate: "2025-08-24", month: 8, categories: ["Annual", "Music", "Festival"], location: "Ship Point Picnic Site", description: "A weekend of free and ticketed performances by international and local blues and R&B artists.", isSignature: true },
+                { name: "Victoria International Dragon Boat Festival", startDate: "2025-08-22", endDate: "2025-08-24", month: 8, categories: ["Annual", "Cultural", "Festival", "Sports"], location: "Inner Harbour", description: "A magnificent celebration combining local and Chinese cultures with dragon boat races and cultural demonstrations.", isSignature: true },
+                { name: "Classic Boat Festival", startDate: "2025-08-29", endDate: "2025-08-31", month: 8, categories: ["Annual", "Community", "Attraction"], location: "Inner Harbour", description: "A celebration of maritime heritage, showcasing classic boats." },
+                { name: "Saanich Fair", startDate: "2025-08-30", endDate: "2025-09-01", month: 8, categories: ["Annual", "Community", "Festival"], location: "Saanich Fairgrounds", description: "A classic annual fair with rides, petting zoos, entertainment, and regional farmers.", isSignature: true },
+                { name: "Esquimalt Ribfest", startDate: "2025-09-05", endDate: "2025-09-07", month: 9, categories: ["Annual", "Food & Drink", "Festival"], location: "Esquimalt", description: "A popular food festival celebrating ribs and community with live music.", isSignature: true },
+                { name: "Great Canadian Beer Festival", startDate: "2025-09-06", endDate: "2025-09-07", month: 9, categories: ["Annual", "Food & Drink", "Festival"], location: "Royal Athletic Park", description: "Canada's first craft beer festival, showcasing over 200 craft beers and ciders.", isSignature: true },
+                { name: "Destination Greater Victoria Membership Mixer", startDate: "2025-09-11", month: 9, categories: ["Annual", "Business"], location: "Destination Greater Victoria Corporate Office", description: "Membership mixer." },
+                { name: "Rifflandia Festival", startDate: "2025-09-12", endDate: "2025-09-14", month: 9, categories: ["Annual", "Music", "Festival"], location: "Matullia Lands at Rock Bay", description: "A popular multi-genre music festival, providing a vibrant end to the summer.", isSignature: true },
+                { name: "Barnburner 5000", startDate: "2025-09-13", month: 9, categories: ["Sports"], location: "Victoria", description: "A local track and field event." },
+                { name: "Victoria Symphony: SEASON OPENING: KLUXEN & LEONG – BEETHOVEN VIOLIN CONCERTO", startDate: "2025-09-14", month: 9, categories: ["Music"], location: "Royal Theatre", description: "Marks the beginning of the Victoria Symphony's 2025/26 season." },
+                { name: "Victoria Symphony: BROADWAY AND BEYOND WITH JIMMIE HERROD", startDate: "2025-09-20", endDate: "2025-09-21", month: 9, categories: ["Music"], location: "Royal Theatre", description: "Music concert." },
+                { name: "Brewery & The Beast", startDate: "2025-09-21", month: 9, categories: ["Annual", "Food & Drink", "Festival"], location: "Starlight Stadium", description: "An all-inclusive celebration of food and drink with sustainably sourced local ingredients and live music.", isSignature: true, analysis: "The shift to specialized events like Brewery & The Beast in September is a strategic pivot to cater to specific interests as mass summer tourism wanes. It sustains economic activity by targeting different demographics, ensuring year-round appeal." },
+                { name: "Victoria Symphony: KLUXEN – ATWOOD, HEGGIE, & SIBELIUS", startDate: "2025-09-28", month: 9, categories: ["Music"], location: "Farquhar at UVic", description: "Music concert." },
+                { name: "Ghostly Walks Halloween Tour", startDate: "2025-10-01", endDate: "2025-11-02", month: 10, categories: ["Annual", "Seasonal", "Tour"], location: "Market Square", description: "Halloween-themed walks with tales of ghosts and haunted alleys." },
+                { name: "2025 Camosun College Lansdowne Campus Volunteer Fair", startDate: "2025-10-02", month: 10, categories: ["Community"], location: "Camosun College Lansdowne Campus", description: "Volunteer fair." },
+                { name: "Victoria International Wine Festival", startDate: "2025-10-03", endDate: "2025-10-04", month: 10, categories: ["Annual", "Food & Drink", "Festival"], location: "Victoria Conference Centre", description: "Showcases international wines with seminars, tastings, and dinners." },
+                { name: "Victoria Tea Festival Revival", startDate: "2025-10-04", month: 10, categories: ["Annual", "Food & Drink", "Festival"], location: "Nootka Court", description: "Offers global teas, expert insights, food, and live music." },
+                { name: "The Sutcliffes Dance Party", startDate: "2025-10-04", month: 10, categories: ["Music", "Dance"], location: "Oak Bay Rec (Upstairs Lounge)", description: "Dance party." },
+                { name: "Victoria Symphony: MOZART & BRAHMS", startDate: "2025-10-05", month: 10, categories: ["Music"], location: "Royal Theatre", description: "Music concert." },
+                { name: "Royal Victoria Marathon", startDate: "2025-10-12", month: 10, categories: ["Annual", "Sports"], location: "Downtown Victoria", description: "A major road running event that draws participants to the scenic routes of Victoria.", isSignature: true },
+                { name: "Victoria Symphony: DVOŘÁK SYMPHONY NO.", startDate: "2025-10-12", month: 10, categories: ["Music"], location: "Farquhar at UVic", description: "Music concert." },
+                { name: "Victoria Festival of Authors", startDate: "2025-10-15", endDate: "2025-10-19", month: 10, categories: ["Annual", "Arts & Culture", "Festival"], location: "Various venues", description: "The 10th annual celebration of books and book lovers, welcoming authors from across Canada.", isSignature: true },
+                { name: "Art of the Cocktail", startDate: "2025-10-18", month: 10, categories: ["Annual", "Food & Drink"], location: "Various venues", description: "A sophisticated event celebrating mixology.", isSignature: true },
+                { name: "Victoria Symphony: VS PRESENTS: VALDÉS, GOODYEAR, & VIS", startDate: "2025-10-19", month: 10, categories: ["Music"], location: "Farquhar at UVic", description: "Music concert." },
+                { name: "Destination Greater Victoria Membership Mixer", startDate: "2025-10-22", month: 10, categories: ["Annual", "Business"], location: "Victoria Butterfly Gardens", description: "Membership mixer." },
+                { name: "Wicked Victoria", startDate: "2025-10-26", month: 10, categories: ["Annual", "Holiday", "Community"], location: "Government Street", description: "A family-friendly Halloween event with activities, trick-or-treating, and costume contests.", isSignature: true },
+                { name: "Salty Sundays", startDate: "2025-11-02", month: 11, categories: ["Recurring", "Arts & Culture"], location: "Maritime Museum of BC", description: "Crafty event included with admission, allowing visitors to engage with painting, carving, and artifact interpretation." },
+                { name: "46th Annual Creative Craft Fair", startDate: "2025-11-07", endDate: "2025-11-09", month: 11, categories: ["Annual", "Market", "Arts & Culture"], location: "Pearkes Rec Centre", description: "Victoria's most established craft fair, signaling the start of holiday shopping.", isSignature: true, analysis: "This event is strategically placed to capitalize on early holiday shopping and festive spirit. It's crucial for local artisans and retailers, driving pre-holiday spending and setting the stage for the peak holiday season." },
+                { name: "Victoria Symphony: KLUXEN & FENG – STRAUSS OBOE CONCERTO", startDate: "2025-11-08", endDate: "2025-11-09", month: 11, categories: ["Music"], location: "Mary Winspear Centre / Farquhar at UVic", description: "Music concert." },
+                { name: "Incoming Festival", startDate: "2025-11-19", endDate: "2025-11-29", month: 11, categories: ["Annual", "Arts & Culture", "Festival"], location: "Various venues", description: "Intrepid Theatre's festival featuring new works from local and touring artists.", isSignature: true },
+                { name: "Victoria Symphony: KLUXEN & TAM – BARTÓK VIOLIN CONCERTO & BEETHOVEN'S EROICA", startDate: "2025-11-16", month: 11, categories: ["Music"], location: "Royal Theatre", description: "Music concert." },
+                { name: "Destination Greater Victoria Membership Mixer", startDate: "2025-11-20", month: 11, categories: ["Annual", "Business"], location: "Marriott Victoria Inner Harbour", description: "Membership mixer." },
+                { name: "Victoria Symphony: APPALACHIAN SPRING", startDate: "2025-11-23", month: 11, categories: ["Music"], location: "Farquhar at UVic", description: "Music concert." },
+                { name: "Lights of Wonder", startDate: "2025-11-30", endDate: "2025-12-31", month: 11, categories: ["Annual", "Holiday", "Attraction"], location: "Centennial Square", description: "A dazzling outdoor light display that brings festive cheer to the downtown core.", isSignature: true },
+                { name: "Destination Greater Victoria Annual Christmas Luncheon & Elections Meeting", startDate: "2025-12-05", month: 12, categories: ["Annual", "Business", "Community"], location: "Crystal Garden", description: "A popular networking event combining a traditional luncheon with fundraising for the BC Hospitality Foundation." },
+                { name: "Victoria Symphony: CHRISTMAS POPS WITH DENZAL SINCLAIRE & DEE DANIELS", startDate: "2025-12-06", endDate: "2025-12-08", month: 12, categories: ["Music", "Holiday"], location: "Royal Theatre", description: "Christmas music concert." },
+                { name: "Messiah by Candlelight", startDate: "2025-12-11", endDate: "2025-12-14", month: 12, categories: ["Annual", "Music", "Holiday"], location: "Christ Church Cathedral", description: "Handel's great oratorio performed in a magnificent candlelit setting with the Victoria Symphony.", isSignature: true }
+            ];
+
+            const eventsContainer = document.getElementById('events-container');
+            const signatureContainer = document.getElementById('signature-container');
+            const monthFilter = document.getElementById('month-filter');
+            const typeFilter = document.getElementById('type-filter');
+            const searchFilter = document.getElementById('search-filter');
+            const resetBtn = document.getElementById('reset-filters');
+            const eventCountEl = document.getElementById('event-count');
+            const noResultsEl = document.getElementById('no-results');
+
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modal-content');
+            const closeModalBtn = document.getElementById('close-modal');
+
+            let chart;
+            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            
+            const categoryColors = {
+                "Festival": "bg-amber-100 text-amber-800",
+                "Music": "bg-sky-100 text-sky-800",
+                "Community": "bg-teal-100 text-teal-800",
+                "Food & Drink": "bg-rose-100 text-rose-800",
+                "Arts & Culture": "bg-violet-100 text-violet-800",
+                "Sports": "bg-lime-100 text-lime-800",
+                "Holiday": "bg-red-100 text-red-800",
+                "Parade": "bg-indigo-100 text-indigo-800",
+                "Annual": "bg-slate-100 text-slate-800",
+                "Business": "bg-gray-100 text-gray-800",
+                "Seasonal": "bg-green-100 text-green-800",
+                "Attraction": "bg-cyan-100 text-cyan-800",
+                "Tour": "bg-orange-100 text-orange-800",
+                "Market": "bg-emerald-100 text-emerald-800",
+                "Cultural": "bg-fuchsia-100 text-fuchsia-800",
+                "Nature": "bg-green-100 text-green-800",
+                "Theatre": "bg-purple-100 text-purple-800",
+                "Performance": "bg-pink-100 text-pink-800",
+                "Comedy": "bg-yellow-100 text-yellow-800",
+                "Film Screening": "bg-blue-100 text-blue-800",
+                "Film Festival": "bg-blue-100 text-blue-800",
+                "Exhibition": "bg-brown-100 text-brown-800",
+                "Wellness": "bg-lime-100 text-lime-800",
+                "Dance": "bg-purple-100 text-purple-800",
+                "Family": "bg-orange-100 text-orange-800",
+                "Spiritual": "bg-indigo-100 text-indigo-800",
+                "Recurring": "bg-gray-100 text-gray-800",
+            };
+
+            function init() {
+                // Sort eventsData by startDate
+                eventsData.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+
+                populateFilters();
+                renderEvents(eventsData);
+                renderSignatureEvents();
+                createChart();
+                setupEventListeners();
+            }
+
+            function populateFilters() {
+                months.forEach((month, index) => {
+                    const option = document.createElement('option');
+                    option.value = index + 1;
+                    option.textContent = month;
+                    monthFilter.appendChild(option);
+                });
+
+                const allCategories = [...new Set(eventsData.flatMap(event => event.categories))].sort();
+                allCategories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category;
+                    option.textContent = category;
+                    typeFilter.appendChild(option);
+                });
+            }
+
+            function renderEvents(events) {
+                eventsContainer.innerHTML = '';
+                if (events.length === 0) {
+                    noResultsEl.classList.remove('hidden');
+                    eventCountEl.textContent = '0 events found';
+                    return;
+                }
+                noResultsEl.classList.add('hidden');
+                eventCountEl.textContent = `${events.length} event${events.length === 1 ? '' : 's'} found`;
+
+                events.forEach(event => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer fade-in';
+                    
+                    const formattedDate = formatEventDate(event.startDate, event.endDate);
+
+                    card.innerHTML = `
+                        <div class="flex-grow">
+                            <p class="text-sm text-slate-500 mb-1">${formattedDate}</p>
+                            <h3 class="text-xl font-bold text-slate-800 mb-2">${event.name}</h3>
+                            <p class="text-slate-600 text-sm mb-4">${event.location}</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mt-auto pt-4 border-t border-slate-100">
+                            ${event.categories.map(cat => `<span class="text-xs font-medium px-2 py-1 rounded-full ${categoryColors[cat] || 'bg-gray-100 text-gray-800'}">${cat}</span>`).join('')}
+                        </div>
+                    `;
+                    card.addEventListener('click', () => openModal(event));
+                    eventsContainer.appendChild(card);
+                });
+            }
+
+            function renderSignatureEvents() {
+                const signatureEvents = eventsData.filter(e => e.isSignature).sort((a,b) => a.month - b.month);
+                signatureContainer.innerHTML = '';
+                 signatureEvents.forEach(event => {
+                    const card = document.createElement('div');
+                    card.className = 'flex-shrink-0 w-72 bg-white rounded-xl shadow-md border border-slate-200 p-5 flex flex-col hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer';
+                    
+                    card.innerHTML = `
+                        <div class="flex-grow">
+                             <p class="text-sm font-semibold text-amber-600 mb-1">${months[event.month -1]}</p>
+                            <h3 class="text-lg font-bold text-slate-800 mb-2">${event.name}</h3>
+                            <p class="text-slate-600 text-sm line-clamp-3">${event.description}</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-slate-100">
+                           ${event.categories.slice(0,2).map(cat => `<span class="text-xs font-medium px-2 py-1 rounded-full ${categoryColors[cat] || 'bg-gray-100 text-gray-800'}">${cat}</span>`).join('')}
+                        </div>
+                    `;
+                    card.addEventListener('click', () => openModal(event));
+                    signatureContainer.appendChild(card);
+                });
+            }
+            
+            function formatEventDate(start, end) {
+                // Parse date components to avoid timezone issues with new Date("YYYY-MM-DD")
+                // This creates a Date object in the local timezone, which is usually what's desired for display.
+                const parseDateString = (dateString) => {
+                    const [year, month, day] = dateString.split('-').map(Number);
+                    return new Date(year, month - 1, day); // Month is 0-indexed in Date constructor
+                };
+
+                const startDate = parseDateString(start);
+                const endDate = end ? parseDateString(end) : null;
+
+                const options = { month: 'long', day: 'numeric' };
+
+                if (!endDate || start === end) {
+                    return startDate.toLocaleDateString('en-US', {...options, year: 'numeric' });
+                }
+
+                const startStr = startDate.toLocaleDateString('en-US', options);
+                const endStr = endDate.toLocaleDateString('en-US', options);
+
+                if (startDate.getMonth() === endDate.getMonth()) {
+                    return `${startStr} – ${endDate.getDate()}, ${endDate.getFullYear()}`;
+                } else {
+                     return `${startStr} – ${endStr}, ${endDate.getFullYear()}`;
+                }
+            }
+            
+            function openModal(event) {
+                document.getElementById('modal-title').textContent = event.name;
+                document.getElementById('modal-dates').textContent = formatEventDate(event.startDate, event.endDate);
+                document.getElementById('modal-location').textContent = `📍 ${event.location}`;
+                document.getElementById('modal-description').textContent = event.description;
+                
+                const tagsContainer = document.getElementById('modal-tags');
+                tagsContainer.innerHTML = event.categories.map(cat => `<span class="text-sm font-medium px-3 py-1 rounded-full ${categoryColors[cat] || 'bg-gray-100 text-gray-800'}">${cat}</span>`).join('');
+                
+                const analysisContainer = document.getElementById('modal-analysis-container');
+                const analysisText = document.getElementById('modal-analysis');
+                if (event.analysis) {
+                    analysisText.textContent = event.analysis;
+                    analysisContainer.classList.remove('hidden');
+                } else {
+                    analysisContainer.classList.add('hidden');
+                }
+
+                modal.classList.remove('hidden');
+                modal.classList.add('flex', 'modal-enter');
+                modalContent.classList.add('modal-content-enter');
+            }
+
+            function closeModal() {
+                 modal.classList.add('modal-exit');
+                 modalContent.classList.add('modal-content-exit');
+                 setTimeout(() => {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex', 'modal-enter', 'modal-exit');
+                    modalContent.classList.remove('modal-content-enter', 'modal-content-exit');
+                }, 300);
+            }
+
+            function filterEvents() {
+                const selectedMonth = monthFilter.value;
+                const selectedType = typeFilter.value;
+                const searchTerm = searchFilter.value.toLowerCase();
+
+                const filteredEvents = eventsData.filter(event => {
+                    const monthMatch = selectedMonth === 'all' || event.month == selectedMonth;
+                    const typeMatch = selectedType === 'all' || event.categories.includes(selectedType);
+                    const searchMatch = event.name.toLowerCase().includes(searchTerm);
+                    return monthMatch && typeMatch && searchMatch;
+                });
+
+                renderEvents(filteredEvents);
+            }
+            
+            function createChart() {
+                const ctx = document.getElementById('eventsChart').getContext('2d');
+                const eventCounts = months.map((_, index) => {
+                    const month = index + 1;
+                    // Count only signature events and festivals for the chart
+                    return eventsData.filter(e => e.month === month && (e.isSignature || e.categories.includes('Festival'))).length;
+                });
+
+                chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: months,
+                        datasets: [{
+                            label: 'Major Events & Festivals',
+                            data: eventCounts,
+                            backgroundColor: 'rgba(245, 158, 11, 0.6)', // amber-500
+                            borderColor: 'rgba(245, 158, 11, 1)',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: '#e2e8f0' // slate-200
+                                },
+                                ticks: {
+                                    color: '#475569' // slate-600
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    color: '#475569' // slate-600
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: '#1e293b', // slate-800
+                                titleFont: { weight: 'bold' },
+                                bodyFont: { size: 14 },
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed.y !== null) {
+                                            label += context.parsed.y;
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        },
+                        onHover: (event, chartElement) => {
+                            event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                        },
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                const monthIndex = elements[0].index;
+                                monthFilter.value = monthIndex + 1;
+                                filterEvents();
+                                document.getElementById('events-list-section').scrollIntoView({ behavior: 'smooth' });
+                            }
+                        }
+                    }
+                });
+            }
+
+            function setupEventListeners() {
+                monthFilter.addEventListener('change', filterEvents);
+                typeFilter.addEventListener('change', filterEvents);
+                searchFilter.addEventListener('input', filterEvents);
+                
+                resetBtn.addEventListener('click', () => {
+                    monthFilter.value = 'all';
+                    typeFilter.value = 'all';
+                    searchFilter.value = '';
+                    filterEvents();
+                });
+                
+                closeModalBtn.addEventListener('click', closeModal);
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        closeModal();
+                    }
+                });
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === "Escape" && !modal.classList.contains('hidden')) {
+                        closeModal();
+                    }
+                });
+            }
+
+            init();
+        });
+    </script>
+</body>
+</html>
